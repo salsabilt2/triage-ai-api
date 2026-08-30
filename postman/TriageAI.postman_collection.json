@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "TriageAI",
+    "description": "Smart support ticket triage API. Set the base_url variable if you are not running on localhost:8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+        "description": "Returns ok, plus whether the server has an API key configured."
+      }
+    },
+    {
+      "name": "Triage a ticket (demo mode)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticket_text\": \"Conveyor motor on line 3 is overheating and smells burnt. Production has stopped.\",\n  \"demo\": true\n}"
+        },
+        "url": { "raw": "{{base_url}}/triage", "host": ["{{base_url}}"], "path": ["triage"] },
+        "description": "Works without an OpenAI key. Returns a saved example response."
+      }
+    },
+    {
+      "name": "Triage a ticket (live AI)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticket_text\": \"Ever since the update on Friday the reporting dashboard crashes as soon as I log in.\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/triage", "host": ["{{base_url}}"], "path": ["triage"] },
+        "description": "Calls the real model. Requires OPENAI_API_KEY in the server's .env file."
+      }
+    },
+    {
+      "name": "Triage several tickets",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tickets\": [\n    \"Conveyor motor on line 3 is overheating and smells burnt.\",\n    \"I was charged twice for my subscription this month.\"\n  ],\n  \"demo\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/triage/batch",
+          "host": ["{{base_url}}"],
+          "path": ["triage", "batch"]
+        },
+        "description": "Up to ten tickets in one call."
+      }
+    },
+    {
+      "name": "Rejected: ticket too short",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"ticket_text\": \"help\"\n}" },
+        "url": { "raw": "{{base_url}}/triage", "host": ["{{base_url}}"], "path": ["triage"] },
+        "description": "Shows the 422 validation error the API returns for bad input."
+      }
+    }
+  ]
+}
