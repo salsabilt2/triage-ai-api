@@ -181,7 +181,7 @@ pytest -v
 ruff check .
 ```
 
-19 tests, and **not one of them touches the network or needs an API key**. The OpenAI SDK
+24 tests, and **not one of them touches the network or needs an API key**. The OpenAI SDK
 communicates over `httpx2`, so the tests hand it a `MockTransport` that answers locally.
 That means the real SDK, the real schema parsing, and the real error handling all run —
 just against a fake server.
@@ -226,7 +226,7 @@ app/
   main.py         endpoints, error handlers, logging
 prompts/          versioned prompt files (v1, v2)
 ui/               Streamlit front end
-tests/            19 tests, no network access
+tests/            24 tests, no network access
 postman/          importable API collection
 ```
 

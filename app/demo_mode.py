@@ -18,7 +18,29 @@ FAKE_OUTPUT_TOKENS = 95
 
 _RESPONSES: list[tuple[tuple[str, ...], TriageResult]] = [
     (
-        ("motor", "overheat", "conveyor", "burnt", "vibration", "bearing", "machine"),
+        (
+            "motor",
+            "overheat",
+            "conveyor",
+            "burnt",
+            "burning",
+            "smoke",
+            "vibration",
+            "bearing",
+            "machine",
+            "belt",
+            "gearbox",
+            "spindle",
+            "fan",
+            "cable",
+            "sensor",
+            "hardware",
+            "device",
+            "equipment",
+            "broken",
+            "leak",
+            "noise",
+        ),
         TriageResult(
             summary="Conveyor line 3 motor is overheating and production has stopped.",
             category=Category.HARDWARE,
@@ -32,7 +54,45 @@ _RESPONSES: list[tuple[tuple[str, ...], TriageResult]] = [
         ),
     ),
     (
-        ("invoice", "billing", "charge", "refund", "payment", "subscription", "price"),
+        (
+            "hydraulic",
+            "press",
+            "pressure",
+            "pump",
+            "valve",
+            "seal",
+            "cylinder",
+            "compressor",
+            "hose",
+        ),
+        TriageResult(
+            summary="Hydraulic press is losing pressure mid-cycle and output has halved.",
+            category=Category.HARDWARE,
+            urgency=Urgency.MEDIUM,
+            suggested_reply=(
+                "Thank you for the detailed report. Pressure loss that worsens over several days "
+                "usually points to a seal or valve issue, so I am passing this to our hydraulics "
+                "team for review today. Could you confirm the pressure reading at the start and "
+                "end of a cycle? That will help the engineer arrive with the right parts."
+            ),
+        ),
+    ),
+    (
+        (
+            "invoice",
+            "billing",
+            "billed",
+            "charge",
+            "charged",
+            "refund",
+            "payment",
+            "subscription",
+            "price",
+            "quote",
+            "receipt",
+            "card",
+            "renewal",
+        ),
         TriageResult(
             summary="Customer was charged twice for the same monthly subscription.",
             category=Category.BILLING,
@@ -46,7 +106,27 @@ _RESPONSES: list[tuple[tuple[str, ...], TriageResult]] = [
         ),
     ),
     (
-        ("login", "password", "crash", "error", "bug", "app", "software", "update", "screen"),
+        (
+            "login",
+            "log in",
+            "password",
+            "crash",
+            "crashes",
+            "error",
+            "bug",
+            "app",
+            "software",
+            "update",
+            "screen",
+            "dashboard",
+            "browser",
+            "firmware",
+            "portal",
+            "account",
+            "sync",
+            "export",
+            "report",
+        ),
         TriageResult(
             summary="Dashboard crashes on load after the latest software update.",
             category=Category.SOFTWARE,
@@ -74,11 +154,20 @@ _FALLBACK = TriageResult(
 
 
 def triage_demo(ticket_text: str) -> TriageResult:
-    """Return a realistic canned result, chosen by the first keyword group that matches."""
+    """Return a realistic canned result for the ticket.
+
+    Every keyword group is scored and the best match wins, rather than the first one that
+    happens to match. That keeps a billing question that mentions a machine in Billing.
+    """
     time.sleep(FAKE_LATENCY_SECONDS)
 
     lowered = ticket_text.lower()
+    best_score = 0
+    best_result = _FALLBACK
+
     for keywords, result in _RESPONSES:
-        if any(word in lowered for word in keywords):
-            return result
-    return _FALLBACK
+        score = sum(word in lowered for word in keywords)
+        if score > best_score:
+            best_score, best_result = score, result
+
+    return best_result

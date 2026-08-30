@@ -1,5 +1,7 @@
 """Tests for the /triage and /triage/batch endpoints."""
 
+import pytest
+
 from app.config import MODEL_PRICES, Settings
 from app.models import Category, Urgency
 from tests.conftest import SAMPLE_TICKET
@@ -73,3 +75,20 @@ def test_unknown_model_is_priced_at_zero_rather_than_crashing():
     settings = Settings(openai_api_key="", openai_model="some-future-model")
 
     assert settings.estimate_cost(1000, 1000) == 0.0
+
+
+@pytest.mark.parametrize(
+    ("ticket", "expected_category"),
+    [
+        ("The hydraulic press keeps losing pressure mid-cycle since Tuesday.", "Hardware"),
+        ("Conveyor motor on line 3 is overheating and smells burnt.", "Hardware"),
+        ("I was charged twice on my invoice for the machine rental this month.", "Billing"),
+        ("The dashboard crashes every time I log in after the update.", "Software"),
+        ("Could you send me the training schedule for next quarter?", "Other"),
+    ],
+)
+def test_demo_mode_routes_realistic_tickets_sensibly(demo_client, ticket, expected_category):
+    """A recruiter typing a plausible ticket should not fall through to the generic answer."""
+    body = demo_client.post("/triage", json={"ticket_text": ticket}).json()
+
+    assert body["result"]["category"] == expected_category
