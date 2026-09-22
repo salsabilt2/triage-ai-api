@@ -2,7 +2,7 @@
 
 **Turns messy support tickets into structured, prioritised data — automatically.**
 
-[![CI](https://github.com/YOUR_USERNAME/triage-ai-api/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/triage-ai-api/actions/workflows/ci.yml)
+[![CI](https://github.com/salsabilt2/triage-ai-api/actions/workflows/ci.yml/badge.svg)](https://github.com/salsabilt2/triage-ai-api/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -47,7 +47,7 @@ API. The API key lives on the server and never reaches the browser.
 ## Quickstart
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/triage-ai-api.git
+git clone https://github.com/salsabilt2/triage-ai-api.git
 cd triage-ai-api
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
