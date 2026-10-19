@@ -9,6 +9,7 @@ import os
 
 import requests
 import streamlit as st
+from examples import EXAMPLE_TICKETS
 
 API_URL = os.getenv("TRIAGE_API_URL", "http://localhost:8000")
 REQUEST_TIMEOUT = 60
@@ -16,22 +17,6 @@ HISTORY_LENGTH = 5
 
 URGENCY_COLOURS = {"High": "🔴", "Medium": "🟠", "Low": "🟢"}
 CATEGORY_ICONS = {"Hardware": "🔧", "Software": "💻", "Billing": "💳", "Other": "📋"}
-
-EXAMPLE_TICKETS = {
-    "— Write my own —": "",
-    "Industrial: conveyor motor overheating": (
-        "Conveyor motor on line 3 is overheating and smells burnt. We shut the line down "
-        "twenty minutes ago and production has stopped. This is the second time this month."
-    ),
-    "Billing: charged twice": (
-        "Hi, I've just checked my statement and I've been charged twice for my monthly "
-        "subscription. Same amount, same day. Can you sort this out please?"
-    ),
-    "Software: dashboard crashes": (
-        "Ever since the update on Friday the reporting dashboard crashes as soon as I log "
-        "in. I can still use the mobile app, so it isn't urgent, but it's slowing me down."
-    ),
-}
 
 st.set_page_config(page_title="TriageAI", page_icon="🎫", layout="centered")
 
@@ -85,8 +70,33 @@ if health["demo_mode"]:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-choice = st.selectbox("Example tickets", list(EXAMPLE_TICKETS))
-ticket_text = st.text_area("Ticket text", value=EXAMPLE_TICKETS[choice], height=170)
+
+def load_example() -> None:
+    """Copy the chosen example into the ticket box.
+
+    Anything that is not a listed example (the dropdown also accepts typed text) is treated
+    as the visitor's own ticket. Clearing the dropdown leaves the ticket box untouched.
+    """
+    choice = st.session_state.example_choice
+    if choice:
+        st.session_state.ticket_text = EXAMPLE_TICKETS.get(choice, choice)
+
+
+ticket_text = st.text_area(
+    "Support ticket",
+    key="ticket_text",
+    height=170,
+    placeholder="Paste or type a support ticket here...",
+)
+st.selectbox(
+    "Or try an example",
+    list(EXAMPLE_TICKETS),
+    index=None,
+    placeholder="Choose an example ticket...",
+    key="example_choice",
+    accept_new_options=True,
+    on_change=load_example,
+)
 
 action, toggle = st.columns([1, 2])
 submitted = action.button("🔍 Triage Ticket", type="primary", use_container_width=True)
