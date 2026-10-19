@@ -1,9 +1,9 @@
 """Example tickets for the UI dropdown.
 
-Each label starts with the category a good triage should pick, but the labels are only a
-guide for the person trying the app: the API never sees them. Several tickets are
-deliberately tricky (angry tone about a small problem, a vague message, mixed topics) so
-people can see the triage judge impact rather than wording.
+Each label names the kind of ticket it is, and the labels are only a guide for the person
+trying the app: the API never sees them. The tickets labelled "Tricky" are deliberate
+edge cases (angry tone about a small problem, calm tone about a safety failure, a vague
+message, mixed topics) so people can see the triage judge impact rather than wording.
 """
 
 EXAMPLE_TICKETS: dict[str, str] = {

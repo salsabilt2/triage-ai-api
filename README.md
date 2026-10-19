@@ -1,108 +1,116 @@
-# 🎫 TriageAI — Smart Support Ticket API
+# TriageAI
 
-**Turns messy support tickets into structured, prioritised data — automatically.**
+A small API that reads a raw support ticket and returns a category, an urgency, a one-sentence summary and a draft reply.
 
 [![CI](https://github.com/salsabilt2/triage-ai-api/actions/workflows/ci.yml/badge.svg)](https://github.com/salsabilt2/triage-ai-api/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<!-- Replace this line with your demo GIF: ![TriageAI demo](docs/demo.gif) -->
-
-> **Try it with no OpenAI key.** Clone, install, run. With no key configured the API returns
-> realistic saved responses, so the whole app works out of the box.
-
----
+<!-- Add the demo GIF here once it is recorded: ![TriageAI demo](docs/demo.gif) -->
 
 ## What it does
 
-- **Reads** a raw support ticket — the kind a person actually types, punctuation and all.
-- **Returns** a one-line summary, a category (Hardware / Software / Billing / Other), an
-  urgency level (Low / Medium / High), and a suggested first reply to the customer.
-- **Reports** how many tokens the request used and what it cost, on every single response.
+You paste a ticket the way a customer wrote it. TriageAI sends it to an OpenAI model and returns four fields.
 
-Built around industrial fault reports — a conveyor motor overheating, a hydraulic press
-losing pressure — but it works on any support inbox.
+| Field | Values |
+|---|---|
+| Category | Hardware, Software, Billing or Other |
+| Urgency | Low, Medium or High |
+| Summary | One sentence |
+| Suggested reply | A short, polite first response |
 
----
+Every response also reports the tokens used, the estimated cost and the time taken.
 
-## Architecture
+The person I had in mind is a support agent who sorts incoming tickets all day, so the page is written for them. The example tickets lean toward industrial faults, such as a conveyor motor overheating or a hydraulic press losing pressure, with billing and software cases next to them.
 
-```
-┌──────────────┐        ┌──────────────────────────────┐        ┌────────────┐
-│    Client    │  HTTP  │       FastAPI Backend        │ HTTPS  │   OpenAI   │
-│              │ ─────► │                              │ ─────► │            │
-│ Streamlit UI │        │ 1. Validate input (Pydantic) │        │  LLM model │
-│ Postman/curl │ ◄───── │ 2. Load versioned prompt     │ ◄───── │            │
-│ Swagger /docs│  JSON  │ 3. Call OpenAI (JSON schema) │  JSON  │            │
-└──────────────┘        │ 4. Validate output + retry   │        └────────────┘
-                        │ 5. Log tokens + cost         │
-                        └──────────────────────────────┘
-```
+This is a portfolio project. It has no login, it does not store tickets, and it is not deployed anywhere.
 
-**The rule this project is built on:** the UI never talks to OpenAI. It only talks to *this*
-API. The API key lives on the server and never reaches the browser.
+## Try it without an API key
 
----
-
-## Quickstart
+The app works with no OpenAI account. When no key is configured, every request returns a saved answer instead of calling the model.
 
 ```bash
 git clone https://github.com/salsabilt2/triage-ai-api.git
 cd triage-ai-api
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open <http://localhost:8000/docs> and try it. That is everything — **no API key needed**.
-
-To use the real model, copy `.env.example` to `.env` and add your key:
+The API is now running at <http://localhost:8000>, and the interactive docs are at <http://localhost:8000/docs>. For the web page, open a second terminal in the same folder and run:
 
 ```bash
-cp .env.example .env   # then set OPENAI_API_KEY=sk-...
-```
-
-To run the web UI, in a second terminal:
-
-```bash
+source .venv/bin/activate
 streamlit run ui/streamlit_app.py
 ```
 
----
+The page opens at <http://localhost:8501>.
 
-## API reference
+Demo mode matches your ticket against keywords and returns one of four saved answers, one per category. A ticket you write yourself gets the answer that fits its category best, which may not describe your ticket. The page says so under every demo result. For an answer written for your ticket, use the real model.
+
+## Run it with the real model
+
+Copy the example settings file, then put your OpenAI key in it.
+
+```bash
+cp .env.example .env
+```
+
+Set `OPENAI_API_KEY=` to your key, restart the API, and untick "Demo mode" on the page. The `.env` file is listed in `.gitignore`, so the key stays on your machine.
+
+| Setting | Default | What it controls |
+|---|---|---|
+| `OPENAI_API_KEY` | empty | Leave empty for demo mode |
+| `OPENAI_MODEL` | `gpt-5-nano` | Which model answers |
+| `PROMPT_VERSION` | `2` | Which file in `prompts/` is used |
+| `REQUEST_TIMEOUT` | `30` | Seconds to wait for OpenAI |
+
+## How it works
+
+```
+ Streamlit page ──HTTP──►  FastAPI backend  ──HTTPS──►  OpenAI
+ Postman / curl ◄──JSON──  (validates, parses)  ◄─JSON──  model
+ Swagger /docs
+```
+
+The page never talks to OpenAI. It only calls my API, and the API holds the key. A request goes through these steps:
+
+1. Pydantic checks the ticket: 10 to 5,000 characters, otherwise the API returns a 422.
+2. The API loads the prompt from `prompts/` (read once at startup).
+3. It asks the model for an answer in a fixed schema.
+4. It checks what came back, and retries once if the answer is unusable.
+5. It logs the tokens and estimated cost, then returns the result.
+
+## API
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/health` | GET | Liveness check, plus whether a key is configured |
-| `/triage` | POST | One ticket in → structured triage out |
-| `/triage/batch` | POST | Up to 10 tickets in one call |
-| `/docs` | GET | Interactive Swagger UI |
+| `/health` | GET | Reports status, model, prompt version and whether a key is set |
+| `/triage` | POST | Triage one ticket |
+| `/triage/batch` | POST | Triage up to 10 tickets in one call |
+| `/docs` | GET | Swagger UI |
 
-**Request**
+A real request and response from the live model:
 
 ```json
 {
-  "ticket_text": "Conveyor motor on line 3 is overheating and smells burnt. Production has stopped.",
-  "demo": false
+  "ticket_text": "The dashboard has been crashing every time I try to export a report since yesterday."
 }
 ```
-
-**Response**
 
 ```json
 {
   "result": {
-    "summary": "Conveyor line 3 motor is overheating and production has stopped.",
-    "category": "Hardware",
-    "urgency": "High",
-    "suggested_reply": "Thank you for reporting this. An overheating motor with a burning smell is a safety risk, so please keep line 3 powered down. I am escalating this to our on-site maintenance team now and will confirm an engineer's arrival time within the hour."
+    "summary": "Dashboard crashes when exporting a report since yesterday.",
+    "category": "Software",
+    "urgency": "Medium",
+    "suggested_reply": "Thanks for reporting. I'm escalating this to our software team to investigate the dashboard export crash and collect any relevant logs. We'll provide an update within the next 24 hours. In the meantime, does the crash occur for all reports or only a specific report?"
   },
   "usage": {
-    "input_tokens": 412,
-    "output_tokens": 88,
-    "estimated_cost_usd": 5.5e-05,
-    "elapsed_seconds": 1.83,
+    "input_tokens": 788,
+    "output_tokens": 1734,
+    "estimated_cost_usd": 0.000733,
+    "elapsed_seconds": 15.477,
     "model": "gpt-5-nano",
     "prompt_version": 2,
     "demo_mode": false
@@ -110,126 +118,103 @@ streamlit run ui/streamlit_app.py
 }
 ```
 
-**Errors.** Every failure returns `{"detail": "..."}` with a message that is safe to show a
-user. Nothing about the server's configuration leaks to the caller.
+Add `"demo": true` to a request to get a saved answer even when a key is configured.
 
-| Situation | Code |
+Errors always come back as `{"detail": "..."}` with a message that is safe to show a user.
+
+| Code | When |
 |---|---|
-| Ticket empty, too short, or over 5,000 characters | `422` |
-| OpenAI rate limit reached | `429` |
-| Server's API key is missing or rejected | `500` |
-| Model returned unusable output twice | `502` |
-| Cannot reach OpenAI | `503` |
-| OpenAI took too long | `504` |
+| 422 | The ticket is empty, shorter than 10 characters or longer than 5,000 |
+| 429 | OpenAI is rate limiting the request |
+| 500 | The server's API key is missing or rejected. The real reason goes to the server log only |
+| 502 | The model returned an unusable answer twice |
+| 503 | OpenAI could not be reached |
+| 504 | OpenAI took too long |
 
-A [Postman collection](postman/TriageAI.postman_collection.json) with all of these is in the repo.
+A [Postman collection](postman/TriageAI.postman_collection.json) with these requests is in the repo.
 
----
+## Keeping the model's output reliable
 
-## How the AI output is kept trustworthy
+I treat the model as an outside service that can fail, because it can.
 
-The language model is treated as an unreliable external service, because that is what it is.
+The expected answer is a Pydantic model, `TriageResult`, passed to OpenAI as the output schema. Category and urgency are enums, so the model cannot return a fifth category.
 
-1. **The schema is enforced, not requested.** `TriageResult` is a Pydantic model sent to
-   OpenAI as a JSON schema, so the model physically cannot return free text, invent a
-   fifth category, or drop a field.
-2. **The answer is still checked.** A model can refuse, or run out of output tokens
-   mid-JSON. Both are caught.
-3. **One retry, then a clean failure.** If the second attempt is also unusable, the caller
-   gets a `502` — never a half-parsed object or a crash.
+The model can still refuse, or run out of output tokens halfway through. Both cases are caught. An unusable answer is retried once, and if the second attempt fails too, the caller gets a 502 and never a half-parsed result.
 
-See [`app/ai_service.py`](app/ai_service.py).
+The code is in [`app/ai_service.py`](app/ai_service.py). Rate-limit and timeout errors from OpenAI become a 429 and a 504, and the app adds no retry of its own for them.
 
----
+## Prompts
 
-## Prompt design notes
+Prompts are plain text files in [`prompts/`](prompts/), so a change to the wording shows up in git like any other change. `PROMPT_VERSION` picks which one runs.
 
-Prompts live in [`prompts/`](prompts/) as versioned files, not buried in the code. Switch
-between them with `PROMPT_VERSION` in `.env`.
+`triage_v1.txt` is a short instruction: read the ticket and return the four fields.
 
-**v1** was the obvious first attempt: "read the ticket, give a summary, category, urgency
-and reply." It produced reasonable text but three problems showed up quickly:
+`triage_v2.txt` is the default. It adds:
 
-- **Urgency tracked tone, not impact.** A politely-worded "the press has stopped" scored
-  lower than an angry message about a cosmetic bug.
-- **Summaries restated the ticket** instead of compressing it.
-- **Replies over-promised** — inventing refund timelines and engineer visit times that
-  nobody had agreed to.
+- a definition of each category;
+- a rule that urgency follows impact and not the customer's tone;
+- a one-sentence limit on the summary;
+- limits on the reply: no promised refunds or visit times, and at most one question;
+- one worked example.
 
-**v2** fixes each one directly:
+I wrote v2 from how I expected the model to go wrong. I have not yet run the two versions side by side on a set of tickets, so I can't say how much better v2 is. That comparison is the next piece of prompt work.
 
-- Urgency is defined by **consequence**, with an explicit rule: *judge the impact, not the
-  customer's tone*. High means stopped production, a safety risk, data loss, or money
-  leaving an account.
-- The summary has a hard limit (one sentence, 25 words) and must name the system and the
-  symptom.
-- The reply section forbids promises the business has not made, and asks exactly one
-  question when the ticket is thin on detail.
-- One worked example is included, because a single concrete example constrains tone more
-  reliably than another paragraph of instructions.
+## Cost and speed
 
-**Next step:** these are reasoned design changes validated by hand on the sample tickets.
-The honest next move is a small labelled set of ~50 tickets and an automated score per
-prompt version, so "v2 is better" becomes a number rather than an opinion.
+`gpt-5-nano` costs $0.05 per million input tokens and $0.40 per million output tokens (OpenAI's published price in August 2026). The prices live in one table in [`app/config.py`](app/config.py).
 
----
+In my two live test runs, one ticket cost between $0.0007 and $0.0008 and took 14 to 15 seconds. That is roughly 1,300 tickets per dollar.
 
-## Testing
+The output side is larger than I expected. The first run used 788 input tokens and 1,734 output tokens for an answer of a few sentences, so most of the output looks like the model's own reasoning. I have not capped it yet. Doing that should cut both the cost and the wait, and it is first on my list.
+
+Demo mode reports fixed token counts, so its cost figure is only a placeholder.
+
+## Tests
 
 ```bash
 pytest -v
-ruff check .
+ruff check . && ruff format --check .
 ```
 
-24 tests, and **not one of them touches the network or needs an API key**. The OpenAI SDK
-communicates over `httpx2`, so the tests hand it a `MockTransport` that answers locally.
-That means the real SDK, the real schema parsing, and the real error handling all run —
-just against a fake server.
+There are 24 tests, and none of them calls OpenAI or needs a key. The OpenAI SDK sends requests through `httpx2`, so the tests give its client a mock transport that answers locally. The real SDK, schema parsing and error handling all run against a fake server.
 
-Covered: the health endpoint, demo mode, live parsing, the retry that recovers, the retry
-that gives up, every input-validation rule, and all five network failure modes. GitHub
-Actions runs the whole suite plus the linter on every push.
-
----
-
-## Cost awareness
-
-`gpt-5-nano` is priced at $0.05 per million input tokens and $0.40 per million output
-tokens (August 2026). A typical triage call is roughly 400 input and 90 output tokens —
-about **$0.00006 per ticket**, or under a dollar for 15,000 tickets.
-
-Every response carries its own token count and cost estimate, and every request writes one
-log line with the same figures. Prices live in one table in
-[`app/config.py`](app/config.py), so updating them is a one-line change.
-
----
-
-## What I'd build next
-
-- **Persistence and auth** — store triaged tickets in Postgres behind API-key auth, so
-  results can be reviewed and the prompt versions compared on real historical data.
-- **A real evaluation harness** — a labelled ticket set scored automatically, turning
-  prompt changes into measured improvements instead of judgement calls.
-- **Deployment** — containerise and deploy behind a rate limiter, with the cost figures
-  already being logged wired into a dashboard and a spend alert.
-
----
+The tests cover the health endpoint, demo mode, a live-style call, the retry that recovers, the retry that gives up, input validation, the rate-limit, timeout, connection and bad-key errors, and the cost arithmetic. GitHub Actions runs the tests and the linter on every push.
 
 ## Project layout
 
 ```
 app/
-  config.py       settings and model prices, all in one place
-  models.py       the request, response, and AI-output contracts
-  ai_service.py   OpenAI call, retry, cost accounting
-  demo_mode.py    canned answers, so the app runs with no key
-  main.py         endpoints, error handlers, logging
-prompts/          versioned prompt files (v1, v2)
-ui/               Streamlit front end
+  config.py       settings, loaded from .env, plus the price table
+  models.py       request, response and model-output schemas
+  ai_service.py   the OpenAI call, retry and cost calculation
+  demo_mode.py    saved answers for demo mode
+  main.py         endpoints, error handling and logging
+prompts/          versioned prompt files
+ui/
+  streamlit_app.py  the page
+  examples.py       the 19 example tickets
+  styles.css        the page styling
+.streamlit/         Streamlit theme settings
 tests/            24 tests, no network access
 postman/          importable API collection
+AGENTS.md         notes for AI coding agents working on this repo
 ```
+
+## Limitations
+
+- A live call takes about 15 seconds, and the page handles one ticket at a time.
+- Nothing is stored. The page keeps the last five results for the current session only.
+- There is no login or rate limiting, so it is not safe to expose publicly as it stands.
+- `/triage/batch` works through its tickets one after another. If one fails, the whole call fails, and the page does not use this endpoint.
+- Demo-mode answers do not describe a ticket you write yourself.
+
+## What I would build next
+
+1. Cap the model's output to cut the cost and the wait.
+2. Build a labelled set of about 50 tickets and score each prompt version automatically, so "v2 is better" becomes a number.
+3. Store triaged tickets in a database behind login, so results can be reviewed.
+4. Containerise and deploy it, with a spend alert based on the cost figures it already logs.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
